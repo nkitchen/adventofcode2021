@@ -15,4 +15,13 @@ sum() {
     awk '{s+=$1} END {print s}'
 }
 
+split() {
+	grep -o .
+}
+
+unsplit() {
+    tr -d '[:space:]'
+}
+
+
 # vim: set shiftwidth=4 tabstop=4 noexpandtab :

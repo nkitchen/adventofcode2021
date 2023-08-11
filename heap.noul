@@ -1,0 +1,39 @@
+# Empty heap:
+#   []
+
+# Minimum item:
+#   h[0]
+
+# Returns the heap after removing heap[0]
+heappop := \heap -> (
+    n := len(heap);
+    if (n < 2) return [];
+    heap[0] = heap[-1];
+    heap = heap[:-1];
+    n -= 1;
+    i := 0;
+    while (true) (
+        j, k := (i + 1) * 2 + V(-1, 0);
+        if (j < n <= k and heap[i] > heap[j]) (
+            swap heap[i], heap[j];
+            i = j
+        ) else if (j < k < n and (v, l := [heap[j], j] min [heap[k], k]; heap[i] > v)) (
+            swap heap[i], heap[l];
+            i = l
+        ) else break
+   );
+   heap
+);
+
+heappush := \heap, item -> (
+    heap append= item;
+    i := len(heap) - 1;
+    while (i > 0) (
+        j := (i + 1) // 2 - 1;
+        if (heap[j] > heap[i]) (
+            swap heap[i], heap[j];
+            i = j
+        ) else break
+    );
+    heap
+)

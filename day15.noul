@@ -1,0 +1,77 @@
+import "aoc.noul";
+import "heap.noul";
+
+risk_map := for(line <- read().lines) yield line map int;
+
+RHUGE := 1 << 31;
+
+m := len(risk_map);
+n := len(risk_map[0]);
+
+adjs := adjs4_bounded(m, n);
+
+solve1 := \ -> (
+    path_risk := m ** [n ** [RHUGE]];
+    path_risk[0][0] = 0;
+
+    q := [[0, 0, 0]];
+    while (q) (
+        r, i, j := q[0];
+        q = heappop(q);
+
+        if (i == m - 1 and j == n -1) (
+            return r
+        );
+
+        for (i', j' <- adjs(i, j)) (
+            r' := r + risk_map[i'][j'];
+            if (r' < path_risk[i'][j']) (
+                path_risk[i'][j'] = r';
+                q heappush= [r', i', j']
+            )
+        )
+    )
+);
+
+solve2 := \ -> (
+    mm := 5 * m;
+    nn := 5 * n;
+    path_risk := mm ** [nn ** [RHUGE]];
+    path_risk[0][0] = 0;
+
+    risk_level := \i, j -> (
+        bi := i // m;
+        bj := j // n;
+        di := i %% m;
+        dj := j %% n;
+        risk_map[di][dj] + bi + bj then \r -> ((r - 1) %% 9 + 1)
+    );
+    
+    adjs = adjs4_bounded(mm, nn);
+
+    q := [[0, 0, 0]];
+    while (q) (
+        r, i, j := q[0];
+        q = heappop(q);
+
+        if (i == mm - 1 and j == nn -1) (
+            return r
+        );
+
+        for (i', j' <- adjs(i, j)) (
+            r' := r + risk_level(i', j');
+            if (r' < path_risk[i'][j']) (
+                path_risk[i'][j'] = r';
+                q heappush= [r', i', j']
+            )
+        )
+    )
+);
+
+ans1 := solve1();
+print(ans1);
+
+ans2 := solve2();
+print(ans2);
+
+# 1m29s

@@ -1,0 +1,133 @@
+#!/usr/bin/env noulith
+
+DEBUG := 1;
+import "aoc.noul";
+
+# Bitstream
+struct Bitstream (
+    bs_buf, # bytes that are not yet fully consumed
+    bs_lead_bits # how many unused bits remain in buf[0]
+);
+
+next_bits := \bitstream, n -> (
+    buf := bitstream.bs_buf;
+    lead_bits := bitstream.bs_lead_bits;
+    bitstream = null;
+
+    bits := buf[0];
+    while (lead_bits < n) (
+        bits = (bits << 8) | buf[1];
+        lead_bits += 8;
+        buf = buf[1:];
+    );
+
+    bits >>= lead_bits - n;
+    lead_bits -= n;
+    buf[0] &= (1 << lead_bits) - 1;
+    bitstream = Bitstream(buf, lead_bits);
+    return [bits, bitstream]
+);
+
+TYPE_LIT := 4;
+
+decode_packet := \bs -> (
+    (ver:), bs = next_bits(bs, 3);
+    (typ:), bs = next_bits(bs, 3);
+    nbits := 6;
+    p := null;
+    switch (typ)
+    case literally TYPE_LIT -> (
+        val := 0;
+        while (true) (
+            (bits:), bs = next_bits(bs, 5);
+            nbits += 5;
+            val <<= 4;
+            val |= bits & 0xf;
+            if (not (bits & (1 << 4))) (
+                break
+            )
+        );
+        p = {'version': ver, 'type': typ, 'value': val, 'nbits': nbits};
+    )
+    case _ -> (
+        p = {'version': ver, 'type': typ};
+        (len_type:), bs = next_bits(bs, 1);
+        nbits += 1;
+        switch (len_type)
+        case 0 -> (
+            (n_sub_bits:), bs = next_bits(bs, 15);
+            nbits += 15;
+            subpackets := [];
+            k := 0;
+            while (k < n_sub_bits) (
+                (p':), bs = decode_packet(bs);
+                subpackets +.= p';
+                k += p'['nbits'];
+                nbits += p'['nbits'];
+            );
+            p['sub'] = subpackets;
+        )
+        case 1 -> (
+            (n_subpackets:), bs = next_bits(bs, 11);
+            nbits += 11;
+            subpackets := [];
+            for (i <- 1 to n_subpackets) (
+                (p':), bs = decode_packet(bs);
+                subpackets +.= p';
+                nbits += p'['nbits'];
+            );
+            p['sub'] = subpackets;
+        );
+        p['nbits'] = nbits;
+    );
+    #dprint(p);
+    [p, bs]
+);
+
+version_sum := \packet -> (
+    s := packet['version'];
+    sub := packet !? 'sub';
+    if (sub) (
+        for (p' <- sub) (
+            s += version_sum(p');
+        )
+    );
+    s
+);
+
+operator := {
+    0: +,
+    1: *,
+    2: min,
+    3: max,
+    5: >,
+    6: <,
+    7: ==
+};
+
+eval_packet := \packet -> (
+    typ := packet["type"];
+    if (typ == TYPE_LIT) (
+        packet["value"]
+    ) else (
+        packet["sub"] map eval_packet fold operator[typ]
+    )
+);
+
+puzzle_input := read().lines;
+
+solve := \ -> (
+    for (line <- puzzle_input) (
+        dprint(line);
+        buf := hex_decode(line);
+        bs := Bitstream(buf, 8);
+        p, _ := decode_packet(bs);
+        print("Version sum:", version_sum(p));
+        print("Packet value:", eval_packet(p));
+        print();
+    )
+);
+
+solve();
+
+# TIME

@@ -1,0 +1,84 @@
+#!/usr/bin/env noulith
+
+DEBUG := 0;
+import "aoc.noul";
+
+puzzle_input := read().lines;
+
+# See notes17.txt for reasoning.
+
+solve := \ -> (
+    for (line <- puzzle_input) (
+        groups := line search R"target area: x=([0-9]+)[.][.]([0-9]+), y=(-[0-9]+)[.][.](-[0-9]+)";
+        [a, b, c, d] := groups[1:] map int;
+
+        #view := {[0, 0]: "S"};
+        #for (x <- a to b; y <- c to d) (
+        #    view[[x, y]] = "T";
+        #);
+
+        trajectory := \vx0, vy0 -> (
+            x := 0;
+            y := 0;
+            vx := vx0;
+            vy := vy0;
+            traj := [V(x, y)];
+
+            while (y + vy >= c) (
+                x += vx;
+                y += vy;
+                vx = (vx - 1) max 0;
+                vy -= 1;
+
+                traj append= V(x, y);
+
+                if (a <= x <= b and c <= y <= d) (
+                    return [true, traj];
+                );
+
+                #view[[x, y]] = "#";
+            );
+
+            return [false, traj];
+        );
+
+        # Max x: vx0^2 - (vx0 - 1) * vx0 / 2 >= a
+        # vx0^2 / 2 - vx0 / 2 - a = 0
+        # vx0^2 - vx0 - 2*a = 0
+        vx0min := (1 + sqrt(1 + 8*a)) / 2 then floor;
+        vx0max := b;
+
+        hits := 0;
+        ymax := 0;
+        for (vy0 <- ((-c) - 1) to c by (-1)) (
+            for (vx0 <- vx0min to vx0max) (
+                dprint("== vx0", vx0, "vy0", vy0);
+                hit, traj := trajectory(vx0, vy0);
+                for (t, [x, y] <<- traj) (
+                    dprint("t", t, "x", x, "y", y);
+                );
+                if (hit) (
+                    ymax max= traj map (_[1]) fold max;
+                    hits += 1;
+                );
+            );
+        );
+        print(F"max y = {ymax}");
+        print(F"hits = {hits}");
+        #wa := view.keys map (_[0]) fold min;
+        #wb := view.keys map (_[0]) fold max;
+        #wc := view.keys map (_[1]) fold min;
+        #wd := view.keys map (_[1]) fold max;
+
+        #for (yy <- wd to wc by (-1)) (
+        #    for (xx <- wa to wb) (
+        #        write(view !? [xx, yy] or ".");
+        #    );
+        #    print();
+        #);
+    )
+);
+
+solve();
+
+# 43s

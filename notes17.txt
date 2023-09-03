@@ -1,0 +1,40 @@
+We have:
+
+    vx = vx0 - t  for t <= vx0
+         0        for t > vx0
+    vy = vxy - t
+
+    x = sum(vx0 - (t' - 1) for t'=0..t-1)  for t <= vx0
+      = vx0 * t - (t - 1) * t / 2
+        vx0 * vx0 - (vx0 - 1) * vx0 / 2    for t > vx0
+    
+    y = sum(vy0 - (t' - 1) for t'=0..t-1)
+      = vy0 * t - (t - 1) * t / 2
+
+Let the target area be a <= x <= b, c <= y <= d.
+
+    c <= y
+    t <= 1/2 * (sqrt((2 * vy0 + 1) ^ 2 - 8 * c) + 2 * vy0 + 1)
+
+    y <= d
+    t >= 1/2 * (sqrt((2 * vy0 + 1) ^ 2 - 8 * d) + 2 * vy0 + 1)
+
+[[ This next bit is wrong.  We don't have to reach a by time s. 
+This gives us a range for t, call it s <= t <= u.
+For x to reach a, we need
+
+    a <= vx0 * s - (s - 1) * s / 2 
+    vx0 >= a / s + (s - 1) / 2
+]]
+
+Reaching the target y-range:  With an upward vy0, y always returns to 0, at
+which time vy=-vy0-1
+
+    0     -1
+   ...     ...
+  vy0-2
+ vy0-1
+vy0         -vy0-1
+
+This gives an upper limit on vy0: The next step after dropping to y=0
+can't go below c.  So -vy0 - 1 >= c, or vy0 <= -c - 1.

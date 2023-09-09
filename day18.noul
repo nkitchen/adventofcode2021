@@ -1,0 +1,137 @@
+#!/usr/bin/env noulith
+
+DEBUG := 0;
+TEST := 0;
+import "aoc.noul";
+
+puzzle_input := read().lines;
+
+OK := 'OK';
+EXPLODE := 'EX';
+SPLIT := 'SP';
+
+add_to_leftmost := \x, a -> (
+    dprint(F"Adding {a} to leftmost in {x}");
+    if (a == null)
+        return [x, null];
+
+    switch (x)
+    case n: int -> return [n + a, null]
+    case _ -> (
+        x[0], a = add_to_leftmost(x[0], a);
+        return [x, a];
+    )
+);
+
+add_to_rightmost := \x, b -> (
+    dprint(F"Adding {b} to rightmost in {x}");
+    if (b == null)
+        return [x, null];
+
+    switch (x)
+    case n: int -> return [n + b, null]
+    case _ -> (
+        x[1], b = add_to_rightmost(x[1], b);
+        return [x, b];
+    )
+);
+
+sf_explode := \x, depth -> (
+    dprint(depth *$ ">" $ F"sf_explode {x}");
+    switch (x)
+    case n: int -> return [x, OK]
+    case a: int, b:int -> (
+        if (depth >= 4) (
+            return [0, EXPLODE] ++ x;
+        )
+    )
+    case _ -> null;
+
+
+    for (i <- 0 to 1) (
+        r := sf_explode(x[i], depth + 1);
+        dprint((depth + 1) *$ "=" $ F"{r}");
+        x[i] = r[0];
+        switch (r[1:])
+        case literally OK, -> 0
+        case literally EXPLODE, a, b -> (
+            if (i == 1 and a != null) (
+                x[0], a = add_to_rightmost(x[0], a);
+            );
+            if (i == 0 and b != null) (
+                x[1], b = add_to_leftmost(x[1], b);
+            );
+            return [x, EXPLODE, a, b];
+        )
+        case _ -> throw F"unexpected case {r}; x={x}";
+    );
+
+    return [x, OK];
+);
+
+sf_split := \x -> (
+    dprint(F"sf_split {x}");
+    switch (x)
+    case n: int -> (
+        if (x >= 10)
+            return [[n // 2, n - n // 2], SPLIT]
+        else
+            return [x, OK];
+    )
+    case _ -> (
+        for (i <- 0 to 1) (
+            r := sf_split(x[i]);
+            x[i] = r[0];
+            switch (r[1])
+            case literally OK -> null
+            case literally SPLIT -> return [x, SPLIT]
+            case _ -> throw F"unexpected case {r}; x={x}";
+        );
+    );
+
+    return [x, OK];
+);
+
+reduce := \x -> (
+    status := null;
+    rest := null;
+    while (true) (
+        if ((x, status, ...rest = sf_explode(x, 0); status == "OK") and
+            (x, status = sf_split(x); status == "OK"))
+            break;
+    );
+    x
+);
+
+sf_add := \a, b -> reduce([a, b]);
+
+sf_mag := \x -> (
+    switch (x)
+    case n: int -> n
+    case y, z -> 3 * sf_mag(y) + 2 * sf_mag(z)
+);
+
+pair_mags := \nums -> (
+    list(
+        for (i, x <<- nums; j, y <<- nums; if i != j)
+            yield sf_mag(sf_add(x, y))
+    )
+);
+    
+if (TEST) (
+    import "test18.noul";
+    test();
+);
+
+solve := \ -> (
+    nums := puzzle_input map eval;
+    s := nums fold sf_add;
+    print(sf_mag(s));
+
+    mags := pair_mags(nums);
+    print(mags fold max);
+);
+
+solve();
+
+# 2m30s

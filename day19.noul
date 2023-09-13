@@ -1,0 +1,121 @@
+#!/usr/bin/env noulith
+
+DEBUG := 1;
+TEST := 1;
+import "aoc.noul";
+
+read_scans := \inp -> (
+    scans := [];
+    i := null;
+    for (line <- inp.lines) (
+        switch (line.words)
+        case '---', 'scanner', s, '---' -> (
+            i = int(s);
+            assert (len(scans) == i);
+            scans append= [];
+        )
+        case [] -> null
+        case [coords] -> (
+            x := eval("V(" $ coords $ ")");
+            scans[-1] append= x;
+        );
+    );
+    scans
+);
+
+solve := \inp -> (
+    scans := read_scans(inp);
+    for (scan_i, beacons <<- scans; scan_j <- (scan_i + 1) til len(scans)) (
+        dprint(F"=== scanners {scan_i}, {scan_j}");
+
+        beacons' := scans[scan_j];
+        ndims := len(beacons[0]);
+        for (dim_i <- 0 til ndims; dim_j <- 0 til ndims; sign' <- [1, -1]) (
+            dprint(F"== dims {dim_i}, {dim_j}");
+
+            xs := beacons map (_[dim_i]) then sort;
+            xs' := beacons' map (_[dim_j]) then sort;
+            if (sign' == (-1)) xs' = reverse(xs');
+
+            # Dynamic programming: best[[i,j]] = [n, offset, [li,lj]]
+            # n is the max number of beacons that match in 0..i, 0..j.
+            # offset is the adjustment to the x' coordinate.
+            # li, lj are the indices of the last matched pair.
+            best := {};
+            for (i, x <<- xs) (
+                offset := x - sign' * xs'[0];
+                best[[i, 0]] = [1, offset, [i, 0]];
+            );
+            for (j, x' <<- xs') (
+                offset := xs[0] - sign' * x';
+                best[[0, j]] = [1, offset, [0, j]];
+            );
+
+            for (i <- 1 til len(xs); j <- 1 til len(xs')) (
+                dprint(F"= i={i} j={j}");
+                d := xs[i] - xs[i - 1];
+                d' := xs'[j] - xs'[j - 1];
+                cands := [
+                    best[[i - 1, j]],
+                    best[[i, j - 1]],
+                    [1, xs[i] - sign' * xs'[j], [i, j]],
+                ];
+
+                # Can the distance between adjacent beacons match a sum of distances
+                # in the other set?
+                for (j' <- j - 1 to (-1) by (-1)) (
+                    if (j' == (-1)) break;
+                    dprint(F"j'={j'} d={d} dj'={xs'[j]-xs'[j']}");
+                    switch (d <=> (xs'[j] - xs'[j']))
+                    case 0 -> (
+                        b := best[[i - 1, j']];
+                        offset := b[1];
+                        dprint(F"Assertion check: {xs[i]} vs {sign' * xs'[j] + offset}; xs[i]={xs[i]} sign'={sign'} xs'[j]={xs'[j]} offset={offset}");
+                        for (k <- best.keys.sort) (
+                            dprint(F"best[{k}] = {best[k]}");
+                        );
+                        assert (xs[i] == sign' * xs'[j] + offset);
+                        cands append= [b[0] + 1, offset, [i, j]];
+                    )
+                    case (-1) -> break
+                    case _ -> null; # Keep trying
+                );
+                for (i' <- i - 1 to (-1) by (-1)) (
+                    if (i' == (-1)) break;
+                    switch (d' <=> (xs[i] - xs[i']))
+                    case 0 -> (
+                        b := best[[i', j - 1]];
+                        offset := b[1];
+                        dprint(F"Assertion check: {xs[i]} vs {sign' * xs'[j] + offset}; xs[i]={xs[i]} sign'={sign'} xs'[j]={xs'[j]} offset={offset}");
+                        for (k <- best.keys.sort) (
+                            dprint(F"best[{k}] = {best[k]}");
+                        );
+                        assert (xs[i] == sign' * xs'[j] + offset);
+                        cands append= [b[0] + 1, offset, [i, j]];
+                    )
+                    case (-1) -> break
+                    case _ -> null; # Keep trying
+                );
+                best[[i, j]] = cands fold max;
+                dprint(F"best[[{i}, {j}]] = {best[[i, j]]}");
+            );
+            b := best[[len(xs) - 1, len(xs') - 1]];
+            for (k <- best.keys.sort) (
+                dprint(F"best[{k}] = {best[k]}");
+            );
+            dprint(b);
+        );
+    );
+);
+
+puzzle_input := null;
+ans := null;
+if (TEST) (
+    puzzle_input = read_file("ex19.txt");
+    ans = solve(puzzle_input);
+) else (
+    puzzle_input = read_file("in19.txt");
+    ans = solve(puzzle_input);
+);
+
+# <time>

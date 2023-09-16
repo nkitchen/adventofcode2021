@@ -1,0 +1,94 @@
+#!/usr/bin/env noulith
+
+DEBUG := 1;
+TEST := 0;
+import "aoc.noul";
+
+solve := \ -> (
+    puzzle_input := if (TEST) (
+        read_file("ex21.txt")
+    ) else (
+        read_file("in21.txt")
+    );
+
+    start := {};
+    for (line <- puzzle_input.lines) (
+        switch (line.words)
+        case "Player", who, "starting", "position:", p -> (
+            who = int(who);
+            p = int(p);
+            start[who] = p;
+        );
+    );
+
+    pos := start;
+    scores := {:0};
+    rolls := 0;
+    rolled := [];
+    player := 1;
+    for (die <- cycle(1 to 100)) (
+        rolls += 1;
+        rolled append= die;
+        if (len(rolled) < 3) continue;
+
+        n := rolled fold +;
+        p' := (pos[player] - 1 + n) % 10 + 1;
+        pos[player] = p';
+        scores[player] += p';
+        if (scores[player] >= 1000) break;
+
+        player = 3 - player;
+        rolled = [];
+    );
+    losing := scores.values fold min;
+    print(losing * rolls);
+
+    # Part 2: Every possible state has a count.
+    # [player, pos1, pos2, score1, score2]
+    states := {[1, start[1], start[2], 0, 0]: 1};
+    rolled = (1 to 3) ^^ 3 map sum then frequencies;
+    while (true) (
+        states' := {:0};
+        for (st, s <<- states) (
+            if (max(st[-2:]) >= 21) (
+                states'[st] += s;
+            ) else for (roll, r <<- rolled) (
+                st' := st;
+                player = st[0];
+                p' := (st[player] - 1 + roll) % 10 + 1;
+                st'[player] = p';
+                st'[2 + player] += p';
+                st'[0] = 3 - player;
+                states'[st'] += s * r;
+            );
+        );
+        states = states';
+
+        if (DEBUG >= 2) (
+            dprint("===");
+            for (st <- states.keys.sort) (
+                dprint(states[st], st);
+            );
+        );
+        
+        scores = states.keys map (\st -> st[-2:]);
+        min_winning := scores zip max then min;
+        dprint(len(states), sum(states.values), min_winning);
+        if (min_winning >= 21) break;
+    );
+
+    p1wins := 0;
+    p2wins := 0;
+    for (st, s <<- states) (
+        if (st[-2] >= st[-1]) (
+            p1wins += s;
+        ) else (
+            p2wins += s;
+        );
+    );
+    print(p1wins, p2wins, p1wins > p2wins);
+);
+
+solve();
+
+# <time>

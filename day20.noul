@@ -1,0 +1,74 @@
+#!/usr/bin/env noulith
+
+DEBUG := 0;
+TEST := 0;
+import "aoc.noul";
+
+solve := \ -> (
+    puzzle_input := if (TEST) (
+        read_file("ex20.txt")
+    ) else (
+        read_file("in20.txt")
+    );
+
+    puzzle_input = puzzle_input replace "[.]" with "0" replace "#" with "1";
+    algo, img0 := puzzle_input split "\n\n";
+
+    algo = algo map int;
+
+    grid := {};
+    for (i, row <<- img0.lines; j, b <<- row) (
+        grid[V(i, j)] = int(b);
+    );
+    inverted := 0;
+
+    show := \ -> (
+        ngrid := {};
+        i_min := grid.keys map (_[0]) fold min;
+        i_max := grid.keys map (_[0]) fold max;
+        j_min := grid.keys map (_[1]) fold min;
+        j_max := grid.keys map (_[1]) fold max;
+        if (inverted) (
+            print("[INVERT]");
+        );
+        for (i <- i_min to i_max) (
+            for (j <- j_min to j_max) (
+                p := grid !? V(i, j) or 0;
+                c := ".#"[p];
+                write(c);
+            );
+            write("\n");
+        );
+        write("\n");
+    );
+
+    for (t <- 1 to 50) (
+        grid' := {};
+        inverted' := inverted ~ algo[0];
+
+        i_min := grid.keys map (_[0]) fold min;
+        i_max := grid.keys map (_[0]) fold max;
+        j_min := grid.keys map (_[1]) fold min;
+        j_max := grid.keys map (_[1]) fold max;
+        for (i <- i_min - 1 to i_max + 1; j <- j_min - 1 to j_max + 1) (
+            pixel := 0;
+            for (i', j' <- nbr9(i, j)) (
+                pixel = (pixel << 1) + ((grid !? V(i', j') or 0) ~ inverted);
+                grid'[V(i, j)] = (algo[pixel] ~ inverted');
+            );
+        );
+        grid = grid';
+        inverted = inverted';
+
+        if (t == 2 or t == 50) (
+            print(F"{t} times: {grid.values fold +}");
+        );
+    );
+    if (DEBUG) (
+        show();
+    );
+);
+
+solve();
+
+# 2m15s

@@ -11,6 +11,10 @@ adjs4_bounded := \m, n -> (
     )
 );
 
+nbr9 := \i, j -> list(
+    for (di <- (-1) to 1; dj <- (-1) to 1) yield V(i + di, j + dj)
+);
+
 dprint := \...args -> (
     if (DEBUG) (
         print of args

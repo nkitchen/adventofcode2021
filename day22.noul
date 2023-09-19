@@ -1,0 +1,46 @@
+#!/usr/bin/env noulith
+
+DEBUG := 0;
+TEST := 0;
+import "aoc.noul";
+
+init_cubes := \filename -> (
+    reboot_steps := [];
+    cubes := {};
+    for (line <- read_file(filename).lines) (
+        enabled, coords := line.words;
+        xmin, xmax, ymin, ymax, zmin, zmax := coords.ints;
+        xmin max= -50;
+        xmax min= 50;
+        ymin max= -50;
+        ymax min= 50;
+        zmin max= -50;
+        zmax min= 50;
+        switch (enabled)
+        case "on" -> (
+            for (x <- xmin to xmax; y <- ymin to ymax; z <- zmin to zmax) (
+                cubes[V(x, y, z)] = null;
+            )
+        )
+        case "off" -> (
+            for (x <- xmin to xmax; y <- ymin to ymax; z <- zmin to zmax) (
+                cubes discard= V(x, y, z);
+            )
+        );
+    );
+    len(cubes)
+);
+
+if (TEST) (
+    import "test22.noul";
+    test();
+);
+   
+solve := \ -> (
+    n := init_cubes("in22.txt");
+    print(n);
+);
+
+solve();
+
+# <time>

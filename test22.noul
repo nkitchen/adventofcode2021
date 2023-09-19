@@ -1,0 +1,9 @@
+test := \ -> (
+    f := "ex22a.txt";
+    n := init_cubes(f);
+    assert (n == 39);
+
+    f = "ex22b.txt";
+    n = init_cubes(f);
+    assert (n == 590784);
+);

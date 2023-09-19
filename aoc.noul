@@ -15,6 +15,8 @@ nbr9 := \i, j -> list(
     for (di <- (-1) to 1; dj <- (-1) to 1) yield V(i + di, j + dj)
 );
 
+ints := \s -> s search_all R"-?\d+" map int;
+
 dprint := \...args -> (
     if (DEBUG) (
         print of args

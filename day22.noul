@@ -1,46 +1,210 @@
 #!/usr/bin/env noulith
 
-DEBUG := 0;
-TEST := 0;
+DEBUG := 1;
+TEST := 1;
 import "aoc.noul";
 
-init_cubes := \filename -> (
-    reboot_steps := [];
-    cubes := {};
+reboot_steps := \filename -> (
+    steps := [];
     for (line <- read_file(filename).lines) (
-        enabled, coords := line.words;
+        sense, coords := line.words;
         xmin, xmax, ymin, ymax, zmin, zmax := coords.ints;
-        xmin max= -50;
-        xmax min= 50;
-        ymin max= -50;
-        ymax min= 50;
-        zmin max= -50;
-        zmax min= 50;
-        switch (enabled)
-        case "on" -> (
-            for (x <- xmin to xmax; y <- ymin to ymax; z <- zmin to zmax) (
-                cubes[V(x, y, z)] = null;
-            )
-        )
-        case "off" -> (
-            for (x <- xmin to xmax; y <- ymin to ymax; z <- zmin to zmax) (
-                cubes discard= V(x, y, z);
-            )
-        );
+        lo := [xmin, ymin, zmin];
+        hi := [xmax, ymax, zmax];
+        steps append= [sense, [lo, hi]];
     );
-    len(cubes)
+    steps
 );
 
-if (TEST) (
-    import "test22.noul";
-    test();
+csize := \c -> (
+    lo, hi := c;
+    d := (hi zip - zip lo) zip (+ 1);
+    d zip (max 0) fold *
 );
-   
+
+cubisect := \c, d -> (
+    [c[0] zip max zip d[0],
+     c[1] zip min zip d[1]]
+);
+
+sunder := \x, c -> (
+    if (x == c) (
+        return [c];
+    );
+
+    xlo, xhi := x;
+    clo, chi := c;
+    n := len(xlo);
+
+    for (i <- 0 til len(xlo)) (
+        assert (clo[i] <= xlo[i]);
+        assert (xhi[i] <= chi[i]);
+    );
+
+    ds := [];
+    for (q <- ((-1) to 1) ^^ n) (
+        dlo := [];
+        dhi := [];
+        for (i <- 0 til n) (
+            switch (q[i])
+            case (-1) -> (
+                dlo append= clo[i];
+                dhi append= xlo[i] - 1;
+            )
+            case 0 -> (
+                dlo append= xlo[i];
+                dhi append= xhi[i];
+            )
+            case 1 -> (
+                dlo append= xhi[i] + 1;
+                dhi append= chi[i];
+            );
+        );
+        d := [dlo, dhi];
+        if (csize(d) > 0) (
+            ds append= d;
+        );
+    );
+
+    # Coalesce them opportunistically.
+    ds' := [];
+    ds .= sort;
+    i := 0;
+    while (i < len(ds) - 1) (
+        d := ds[i];
+        dd := ds[i + 1];
+        joined := null;
+
+        for (j <- 0 til n) (
+            if (d[0][:j] == dd[0][:j] and
+                d[0][j+1:] == dd[0][j+1:] and
+                d[1][:j] == dd[1][:j] and
+                d[1][j+1:] == dd[1][j+1:] and
+                d[1][j] + 1 == dd[0][j]) (
+                joined = [d[0], dd[1]];
+                #dprint(F"Coalesced {d} + {dd} to {joined}");
+                assert (csize(d) + csize(dd) == csize(joined));
+                break;
+            );
+        );
+
+        if (joined) (
+            ds[i + 1] = joined;
+        ) else (
+            ds' append= d;
+        );
+        i += 1;
+
+        if (i == len(ds) - 1) (
+            ds' append= ds[-1];
+        );
+    );
+    ds'
+);
+
+reboot_cuboids := \steps -> (
+    cuboids := []; # disjoint
+    for (step <- steps) (
+        dprint(F"step {step}");
+        sense, c' := step;
+        added := {};
+
+        if (not(cuboids) and sense == "on") (
+            cuboids append= c';
+            continue;
+        );
+
+        i := 0;
+        while (i < len(cuboids)) (
+            c := cuboids[i];
+            x := cubisect(c, c');
+            dprint(F"Check against {c}; overlap {x}");
+            if (csize(x) == 0) (
+                # No overlap
+                i += 1;
+                continue;
+            );
+
+            ds := x sunder c;
+            assert (csize(c) == (ds map csize fold +));
+            ds' := x sunder c';
+            assert (csize(c') == (ds' map csize fold +));
+            del := {};
+            if (sense == "on") (
+                del = set(ds) || set(ds');
+                dprint(F"Keep {del}");
+            ) else (
+                del = set(ds) -- set(ds');
+                dprint(F"Keep {del}");
+            );
+            added ||= del;
+            swap cuboids[i], cuboids[-1];
+            pop cuboids;
+        );
+        cuboids ++= list(added);
+    );
+    cuboids
+);
+
+#            s
+#            for (j <- 0 til len(lo)) (
+#                if (chi[j] < lo[j] or hi[j] < clo[j]) (
+#                    # No overlap in this dimension
+#                    continue
+#                );
+#
+#                if (clo[j] < lo[j]) (
+#                    clo1 := clo;
+#                    chi1 := chi[:j] +. (lo[j] - 1) ++ chi[j+1:];
+#                    clo2 := clo[:j] +. lo[j] ++ clo[j+1:];
+#                    chi2 := chi;
+#                    pieces ++= [[clo1, chi1], [clo2, chi2]];
+#                );
+#
+#            clo, chi := cuboids[i];
+#            over_lo := lo zip max zip clo;
+#            over_hi := lo zip max zip chi;
+#            if (cuboid_size([over_lo, over_hi]) == 0) (
+#                i += 1;
+#                continue;
+#            );
+#
+#            # Need to split cuboids
+#            pieces := [];
+#
+#            if (clo[0] < lo[0]) (
+#                # clo[0].. lo[0]
+#                below := [clo[0] .+ clo[1:], (lo[0] - 1) .+ 
+#
+#        );
+#
+#    );
+#    cuboids
+#);
+
+init_cubes := \filename -> (
+    steps := reboot_steps(filename);
+    cuboids := reboot_cuboids(steps);
+    n := 0;
+    init_region := [(-50) .* 3, 50 .* 3];
+    for (c <- cuboids) (
+        print(F"cuboid {c}");
+        x := init_region cubisect c;
+        n += csize(x);
+    );
+    n
+);
+
 solve := \ -> (
     n := init_cubes("in22.txt");
     print(n);
 );
 
-solve();
+if (TEST) (
+    import "test22.noul";
+    test();
+) else (
+    solve();
+);
 
 # <time>

@@ -27,80 +27,198 @@ cubisect := \c, d -> (
      c[1] zip min zip d[1]]
 );
 
+# A list of disjoint cuboids covering the same points as c.
+# x is a sub-cuboid of c.
 sunder := \x, c -> (
     if (x == c) (
         return [c];
     );
+    assert ((x cubisect c) == x);
+
+    # c need not be broken down into the smallest possible sub-cuboids.
+    # As a 2-D analog, instead of doing this:
+    #
+    # +-------+     +--+-+--+
+    # |       |     |  | |  |
+    # |  +-+  +     +--+-+--+
+    # |  | |  | ==> |  | |  |
+    # +  +-+  |     +--+-+--+
+    # |       |     |  | |  |
+    # +--+----+     +--+-+--+
+    #
+    # we can do this:
+    #
+    # +-------+     +--+-+--+
+    # |       |     |  | |  |
+    # |  +-+  +     +  +-+  +
+    # |  | |  | ==> |  | |  |
+    # +  +-+  |     +  +-+  +
+    # |       |     |  | |  |
+    # +--+----+     +--+-+--+
+    #
+    # That is, instead of dividing the cuboid into (up to) 27 different regions,
+    # in one dimension we can keep a single cuboid below and above x,
+    # and the same in the next dimension in the slice around x,
+    # with a total of 7 possible cuboids, including x.
+
+    # Which order of dimensions is best?  Let's try to minimize the number of
+    # intersections between cuboids by avoiding the largest sub-cuboids --
+    # that is, slice the longest span first.
+    clo, chi := c;
+    k := len(clo);
+    spans := [];
+    for (i <- 0 til k) (
+        spans append= [chi[i] - clo[i] + 1, i];
+    );
+    spans = spans.sort.reverse;
 
     xlo, xhi := x;
-    clo, chi := c;
-    n := len(xlo);
-
-    for (i <- 0 til len(xlo)) (
-        assert (clo[i] <= xlo[i]);
-        assert (xhi[i] <= chi[i]);
-    );
 
     ds := [];
-    for (q <- ((-1) to 1) ^^ n) (
-        dlo := [];
-        dhi := [];
-        for (i <- 0 til n) (
-            switch (q[i])
-            case (-1) -> (
-                dlo append= clo[i];
-                dhi append= xlo[i] - 1;
-            )
-            case 0 -> (
-                dlo append= xlo[i];
-                dhi append= xhi[i];
-            )
-            case 1 -> (
-                dlo append= xhi[i] + 1;
-                dhi append= chi[i];
-            );
-        );
+    c' := c;
+    for (span <- spans) (
+        i := span[1];
+
+        dlo, dhi := c';
+        dhi[i] = xlo[i] - 1;
         d := [dlo, dhi];
-        if (csize(d) > 0) (
+        if (d.csize > 0)
             ds append= d;
-        );
+            
+        dlo, dhi = c';
+        dlo[i] = xhi[i] + 1;
+        d = [dlo, dhi];
+        if (d.csize > 0)
+            ds append= d;
+
+        c'[0][i] = xlo[i];
+        c'[1][i] = xhi[i];
     );
+    ds append= x;
 
-    # Coalesce them opportunistically.
-    ds' := [];
-    ds .= sort;
-    i := 0;
-    while (i < len(ds) - 1) (
-        d := ds[i];
-        dd := ds[i + 1];
-        joined := null;
+    n' := ds map csize fold +;
+    assert (n' == c.csize);
+    ds
+);
 
-        for (j <- 0 til n) (
-            if (d[0][:j] == dd[0][:j] and
-                d[0][j+1:] == dd[0][j+1:] and
-                d[1][:j] == dd[1][:j] and
-                d[1][j+1:] == dd[1][j+1:] and
-                d[1][j] + 1 == dd[0][j]) (
-                joined = [d[0], dd[1]];
-                #dprint(F"Coalesced {d} + {dd} to {joined}");
-                assert (csize(d) + csize(dd) == csize(joined));
+reboot_cubes := \steps -> (
+    on_set := {};
+    cuboid_steps := {};
+    for (i, [sense, d] <<- steps) (
+        dprint(F"step {i}: {sense} d={d}");
+        if (sense == "on") (
+            on_set |.= i;
+        );
+
+        to_remove := {};
+        to_add := {};
+        new := [d];
+        while (new) (
+            d = pop new;
+            dprint(F"  d={d}");
+            ds := [];
+            for (c, cis <<- cuboid_steps) (
+                dprint(F"  previous c={c} in {cis}");
+
+                if (c == d) (
+                    cuboid_steps[c][i] = null;
+                    continue;
+                );
+
+                x := c cubisect d;
+                if (x.csize == 0)
+                    continue;
+
+                dprint(F"  x={x}");
+
+                if (x == c) (
+                    cuboid_steps[c][i] = null;
+                ) else (
+                    remove cuboid_steps[c];
+                    cs := x sunder c;
+                    dprint(F"  c={c} sundered:");
+                    for (c' <- cs.sort) (
+                        dprint(F"      {c'}");
+                        if (c' in cuboid_steps) (
+                            cuboid_steps[c'] ||= cis;
+                        ) else (
+                            cuboid_steps[c'] = cis;
+                        );
+                    );
+                );
+
+                ds = x sunder d;
+                new ++= ds;
+
                 break;
             );
+
+            if (not(ds)) (
+                if (d in cuboid_steps) (
+                    cuboid_steps[d] |.= i;
+                ) else (
+                    cuboid_steps[d] = {i};
+                );
+            );
         );
 
-        if (joined) (
-            ds[i + 1] = joined;
-        ) else (
-            ds' append= d;
+        if (DEBUG) (
+            print("new cuboid_steps:");
+            for (c' <- cuboid_steps.keys.sort) (
+                print(F"  {c'}: {cuboid_steps[c']}");
+            );
+            print();
         );
-        i += 1;
 
-        if (i == len(ds) - 1) (
-            ds' append= ds[-1];
+        cs := list(cuboid_steps.keys.sort);
+        for (j, c <<- cs) (
+            for (k <- (j + 1) til len(cs)) (
+                d = cs[k];
+                if ((c cubisect d).csize != 0) (
+                    print(F"{c} xx {d}");
+                );
+                assert ((c cubisect d).csize == 0);
+            );
+        );
+
+        dprint(F"CS {len(cuboid_steps)}");
+    );
+
+    n := 0;
+    for (c, cis <<- cuboid_steps) (
+        i := cis.max;
+        if (i in on_set) (
+            n += c.csize;
         );
     );
-    ds'
+    n
 );
+#reboot_cubes := \steps -> (
+#    # For each cuboid, 
+#    on_cuboids := steps filter (_[0] == "on") map (_[1]);
+#
+#    first_eq := \a, b -> (a[0] == b[0]);
+#
+#    # Record a label for each step (index will do).
+#    labelled_steps = list(for (i, st <<- steps) yield [st[0], i, st[1]]);
+#    # Group by sense.
+#    stages := labelled_steps group first_eq;
+#
+#    # Cuboids and their labelled intersections, by stage
+#    phases := [];
+#    for (stage <- stages) (
+#        # E.g., [["on", 0, c0], ["on", 1, c1]]
+#        sense, label0, c0 := stage[0];
+#        cs := for (_, label, c <- stage) yield c: {label};
+#
+#        cs := {c0: {label0}};
+#        for (_, label, c <- stage[1:]) (
+#            s := cs !? c or {};
+#            s |.= label;
+#            cs[c] = s;
+#        );
+#    );
+#);
 
 reboot_cuboids := \steps -> (
     cuboids := []; # disjoint
@@ -184,15 +302,9 @@ reboot_cuboids := \steps -> (
 
 init_cubes := \filename -> (
     steps := reboot_steps(filename);
-    cuboids := reboot_cuboids(steps);
-    n := 0;
     init_region := [(-50) .* 3, 50 .* 3];
-    for (c <- cuboids) (
-        print(F"cuboid {c}");
-        x := init_region cubisect c;
-        n += csize(x);
-    );
-    n
+    steps' := steps map (\[sense, c] -> [sense, c cubisect init_region]);
+    reboot_cubes(steps')
 );
 
 solve := \ -> (

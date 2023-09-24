@@ -31,5 +31,13 @@ test := \ -> (
     assert (n == 590784);
     print("ok ex22b.txt");
 
+    f = "ex22c.txt";
+    n = init_cubes(f);
+    assert (n == 474140);
+    steps := reboot_steps(f);
+    n = reboot_cubes(steps);
+    assert (n == 2758514936282235);
+    print("ok ex22c.txt");
+
     print("PASS");
 );

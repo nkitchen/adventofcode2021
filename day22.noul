@@ -1,7 +1,7 @@
 #!/usr/bin/env noulith
 
-DEBUG := 1;
-TEST := 1;
+DEBUG := 0;
+TEST := 0;
 import "aoc.noul";
 
 reboot_steps := \filename -> (
@@ -102,203 +102,24 @@ sunder := \x, c -> (
 );
 
 reboot_cubes := \steps -> (
-    on_set := {};
-    cuboid_steps := {};
-    for (i, [sense, d] <<- steps) (
-        dprint(F"step {i}: {sense} d={d}");
-        if (sense == "on") (
-            on_set |.= i;
-        );
-
-        to_remove := {};
-        to_add := {};
-        new := [d];
-        while (new) (
-            d = pop new;
-            dprint(F"  d={d}");
-            ds := [];
-            for (c, cis <<- cuboid_steps) (
-                dprint(F"  previous c={c} in {cis}");
-
-                if (c == d) (
-                    cuboid_steps[c][i] = null;
-                    continue;
-                );
-
-                x := c cubisect d;
-                if (x.csize == 0)
-                    continue;
-
-                dprint(F"  x={x}");
-
-                if (x == c) (
-                    cuboid_steps[c][i] = null;
-                ) else (
-                    remove cuboid_steps[c];
-                    cs := x sunder c;
-                    dprint(F"  c={c} sundered:");
-                    for (c' <- cs.sort) (
-                        dprint(F"      {c'}");
-                        if (c' in cuboid_steps) (
-                            cuboid_steps[c'] ||= cis;
-                        ) else (
-                            cuboid_steps[c'] = cis;
-                        );
-                    );
-                );
-
-                ds = x sunder d;
-                new ++= ds;
-
-                break;
-            );
-
-            if (not(ds)) (
-                if (d in cuboid_steps) (
-                    cuboid_steps[d] |.= i;
-                ) else (
-                    cuboid_steps[d] = {i};
-                );
-            );
-        );
-
-        if (DEBUG) (
-            print("new cuboid_steps:");
-            for (c' <- cuboid_steps.keys.sort) (
-                print(F"  {c'}: {cuboid_steps[c']}");
-            );
-            print();
-        );
-
-        cs := list(cuboid_steps.keys.sort);
-        for (j, c <<- cs) (
-            for (k <- (j + 1) til len(cs)) (
-                d = cs[k];
-                if ((c cubisect d).csize != 0) (
-                    print(F"{c} xx {d}");
-                );
-                assert ((c cubisect d).csize == 0);
-            );
-        );
-
-        dprint(F"CS {len(cuboid_steps)}");
-    );
-
+    # Thanks to https://github.com/Dullstar/Advent_Of_Code/blob/main/python/year2021/day22.py
     n := 0;
-    for (c, cis <<- cuboid_steps) (
-        i := cis.max;
-        if (i in on_set) (
-            n += c.csize;
+    cs := [];
+    for ([sense, c] <- steps.reverse) (
+        if (sense == "on") (
+            steps' := [];
+            for (c' <- cs) (
+                x := c cubisect c';
+                if (x.csize > 0) (
+                    steps' append= ["on", x];
+                );
+            );
+            n += c.csize - reboot_cubes(steps');
         );
+        cs append= c;
     );
     n
 );
-#reboot_cubes := \steps -> (
-#    # For each cuboid, 
-#    on_cuboids := steps filter (_[0] == "on") map (_[1]);
-#
-#    first_eq := \a, b -> (a[0] == b[0]);
-#
-#    # Record a label for each step (index will do).
-#    labelled_steps = list(for (i, st <<- steps) yield [st[0], i, st[1]]);
-#    # Group by sense.
-#    stages := labelled_steps group first_eq;
-#
-#    # Cuboids and their labelled intersections, by stage
-#    phases := [];
-#    for (stage <- stages) (
-#        # E.g., [["on", 0, c0], ["on", 1, c1]]
-#        sense, label0, c0 := stage[0];
-#        cs := for (_, label, c <- stage) yield c: {label};
-#
-#        cs := {c0: {label0}};
-#        for (_, label, c <- stage[1:]) (
-#            s := cs !? c or {};
-#            s |.= label;
-#            cs[c] = s;
-#        );
-#    );
-#);
-
-reboot_cuboids := \steps -> (
-    cuboids := []; # disjoint
-    for (step <- steps) (
-        dprint(F"step {step}");
-        sense, c' := step;
-        added := {};
-
-        if (not(cuboids) and sense == "on") (
-            cuboids append= c';
-            continue;
-        );
-
-        i := 0;
-        while (i < len(cuboids)) (
-            c := cuboids[i];
-            x := cubisect(c, c');
-            dprint(F"Check against {c}; overlap {x}");
-            if (csize(x) == 0) (
-                # No overlap
-                i += 1;
-                continue;
-            );
-
-            ds := x sunder c;
-            assert (csize(c) == (ds map csize fold +));
-            ds' := x sunder c';
-            assert (csize(c') == (ds' map csize fold +));
-            del := {};
-            if (sense == "on") (
-                del = set(ds) || set(ds');
-                dprint(F"Keep {del}");
-            ) else (
-                del = set(ds) -- set(ds');
-                dprint(F"Keep {del}");
-            );
-            added ||= del;
-            swap cuboids[i], cuboids[-1];
-            pop cuboids;
-        );
-        cuboids ++= list(added);
-    );
-    cuboids
-);
-
-#            s
-#            for (j <- 0 til len(lo)) (
-#                if (chi[j] < lo[j] or hi[j] < clo[j]) (
-#                    # No overlap in this dimension
-#                    continue
-#                );
-#
-#                if (clo[j] < lo[j]) (
-#                    clo1 := clo;
-#                    chi1 := chi[:j] +. (lo[j] - 1) ++ chi[j+1:];
-#                    clo2 := clo[:j] +. lo[j] ++ clo[j+1:];
-#                    chi2 := chi;
-#                    pieces ++= [[clo1, chi1], [clo2, chi2]];
-#                );
-#
-#            clo, chi := cuboids[i];
-#            over_lo := lo zip max zip clo;
-#            over_hi := lo zip max zip chi;
-#            if (cuboid_size([over_lo, over_hi]) == 0) (
-#                i += 1;
-#                continue;
-#            );
-#
-#            # Need to split cuboids
-#            pieces := [];
-#
-#            if (clo[0] < lo[0]) (
-#                # clo[0].. lo[0]
-#                below := [clo[0] .+ clo[1:], (lo[0] - 1) .+ 
-#
-#        );
-#
-#    );
-#    cuboids
-#);
 
 init_cubes := \filename -> (
     steps := reboot_steps(filename);
@@ -308,7 +129,11 @@ init_cubes := \filename -> (
 );
 
 solve := \ -> (
-    n := init_cubes("in22.txt");
+    f := "in22.txt";
+    n := init_cubes(f);
+    print(n);
+    steps := reboot_steps(f);
+    n = reboot_cubes(steps);
     print(n);
 );
 
@@ -319,4 +144,4 @@ if (TEST) (
     solve();
 );
 
-# <time>
+# 6s

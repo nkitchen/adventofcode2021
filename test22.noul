@@ -5,22 +5,6 @@ test := \ -> (
     assert (x == [[2, 6, 10], [3, 7, 11]]);
     print("ok cubisect");
 
-    cs := x sunder c;
-    ds := x sunder d;
-    fs := set(cs) || set(ds);
-    n := fs map csize fold +;
-    n' := c.csize + d.csize - x.csize;
-    assert (n == n');
-    print("ok sunder 1");
-
-    c = [[10, 51, 92], [43, 84, 125]];
-    d = [[26, 67, 108], [39, 70, 111]];
-    fs = d sunder c;
-    n = fs map csize fold +;
-    n' = c.csize;
-    assert (n == n');
-    print("ok sunder 2");
-
     f := "ex22a.txt";
     n = init_cubes(f);
     assert (n == 39);

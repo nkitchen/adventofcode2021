@@ -1,0 +1,262 @@
+#!/usr/bin/env noulith
+
+DEBUG := 1;
+TEST := 1;
+
+import "aoc.noul";
+import "heap.noul";
+
+energy_req := {
+    'A': 1,
+    'B': 10,
+    'C': 100,
+    'D': 1000,
+};
+
+solve := \filename -> (
+    # The name "map" already has a meaning.
+    grid := read_file(filename).lines;
+
+    grid = grid[:3] ++ [
+        "  #D#C#B#A#",
+        "  #D#B#A#C#"
+    ] ++ grid[3:];
+
+    m := len(grid);
+    n := len(grid[0]);
+    assert(m == 7);
+    assert(n == 13);
+
+    amphipods := {};
+    for (i <- 2 to 5; j <- 3 to 9) (
+        c := grid[i][j];
+        if (c in "ABCD") (
+            amphipods[V(i, j)] = c;
+            grid[i][j] = ".";
+        );
+    );
+    assert(len(amphipods) == 16);
+
+    energy_per_step := {
+        'A': 1,
+        'B': 10,
+        'C': 100,
+        'D': 1000,
+    };
+
+    i_hall := 1;
+
+    hall_stops := [
+        V(1, 1),
+        V(1, 2),
+        V(1, 4),
+        V(1, 6),
+        V(1, 8),
+        V(1, 10),
+        V(1, 11),
+    ];
+
+    i_goal := list(2 to 5);
+    j_goal := {
+        'A': 3,
+        'B': 5,
+        'C': 7,
+        'D': 9,
+    };
+    goal := for (atype, j <<- j_goal; i <- i_goal) yield V(i, j): atype;
+
+    total_energy := \s -> s['energy_spent'] + s['energy_projected'];
+
+    display := \s -> (
+        aa := s['amphipods'];
+        t := "\n";
+        for (i <- 0 til m) (
+            for (j <- 0 til n; if j < len(grid[i])) (
+                atype := aa !? V(i, j);
+                if (atype) (
+                    t $= atype;
+                ) else (
+                    t $= grid[i][j];
+                )
+            );
+            t $= "\n";
+        );
+        t $= F"Spent: {s['energy_spent']}\n";
+        t $= F"Proj:  {s['energy_projected']}\n";
+        t $= F"Total: {total_energy(s)}\n";
+        t
+    );
+
+    amphipods_to_move := \s -> (
+        aa := s['amphipods'];
+        r := aa.items.set -- goal.items.set;
+        # Include amphipods that match the goal but block progress.
+        for (j <- j_goal.values; i <- i_goal[:-1]) (
+            ij := V(i, j);
+            if (aa !? ij != goal[ij]) continue;
+            for (i' <- (i + 1) to i_goal[-1]) (
+                ij' := V(i', j);
+                if (aa !? ij' != goal[ij']) (
+                    r |.= [ij, aa[ij]];
+                    break;
+                );
+            );
+        );
+        r
+    );
+
+    estimate_energy := \aa -> (
+        cost := \[ij, atype] -> (
+            if (goal !? ij == atype) return 0;
+
+            i, j := ij;
+            k := abs(j_goal[atype] - j) + abs(i - i_hall) + abs(i_hall - i_goal[0]);
+            k * energy_per_step[atype]
+        );
+        aa.items map cost then sum
+    );
+
+    steps := \aa, a, ij' -> (
+        [i, j], atype := a;
+        i', j' := ij';
+        k := 0;
+        if (i == i_hall) (
+            if (j < j') (
+                for (jj' <- (j + 1) to j') (
+                    if (V(i, jj') in aa) return null;
+                    k += 1;
+                );
+            ) else (
+                for (jj' <- (j - 1) to j' by (-1)) (
+                    if (V(i, jj') in aa) return null;
+                    k += 1;
+                );
+            );
+            for (ii' <- (i + 1) to i') (
+                if (V(ii', j') in aa) return null;
+                k += 1;
+            );
+        ) else (
+            for (ii' <- (i - 1) to i_hall by (-1)) (
+                if (V(ii', j) in aa) return null;
+                k += 1;
+            );
+            if (j < j') (
+                for (jj' <- (j + 1) to j') (
+                    if (V(i_hall, jj') in aa) return null;
+                    k += 1;
+                );
+            ) else (
+                for (jj' <- (j - 1) to j' by (-1)) (
+                    if (V(i_hall, jj') in aa) return null;
+                    k += 1;
+                );
+            );
+        );
+        k
+    );
+
+    next_states := \s, a -> (
+        dprint(F"next_states {a}");
+        aa := s['amphipods'];
+        ss' := [];
+
+        [i, j], atype := a;
+
+        dests := [];
+        if (i == i_hall) (
+            # Moving from hall to goal
+            j' := j_goal[atype];
+            blocked := false;
+            for (i' <- i_goal) (
+                ij' := V(i', j');
+                if (ij' in aa and aa[ij'] != goal[ij']) (
+                    blocked = true;
+                    break;
+                );
+            );
+            if (not(blocked)) (
+                for (i' <- i_goal) (
+                    ij' := V(i', j');
+                    if (ij' not_in aa) (
+                        dests = [ij'];
+                        break;
+                    );
+                );
+            );
+        ) else if (V(i - 1, j) not_in aa) (
+            # Moving to hall
+            dests = hall_stops;
+        );
+
+        for (ij' <- dests) (
+            if (ij' in aa) continue;
+
+            k := steps(aa, a, ij');
+            if (k == null) continue;
+            e := k * energy_per_step[atype];
+            aa' := aa;
+            aa' -.= V(i, j);
+            aa'[ij'] = atype;
+            s' := {
+                'amphipods': aa',
+                'energy_spent': e + s['energy_spent'],
+                'energy_projected': estimate_energy(aa'),
+            };
+            ss' append= s';
+        );
+        if (DEBUG) (
+            print("next_states >> :");
+            for (s' <- ss') (
+                print(display(s'));
+            )
+        );
+        ss'
+    );
+
+    s0 := {
+        'amphipods': amphipods,
+        'energy_spent': 0,
+    };
+    s0['energy_projected'] = estimate_energy(amphipods);
+
+    max_spent := 0;
+    q := [[total_energy(s0), 0, s0]];
+    seen := {amphipods};
+    while (q) (
+        energy, nonce, s := q[0];
+        q = heappop(q);
+        dprint(F"next off queue: {display(s)}");
+
+        spent := s['energy_spent'];
+        if (spent > max_spent) (
+            max_spent = spent;
+            print(spent);
+        );
+
+        to_move := amphipods_to_move(s);
+        if (len(to_move) == 0) (
+            return s['energy_spent'];
+        );
+
+        for (a <- to_move) (
+            dprint(F"Moving {a}");
+            for (s' <- next_states(s, a)) (
+                aa' := s'['amphipods'];
+                if (aa' in seen) continue;
+                seen |.= aa';
+                q heappush= [total_energy(s'), random(), s'];
+            );
+        );
+    );
+);
+
+ans := null;
+if (TEST) (
+    ans = solve("ex23.txt");
+) else (
+    ans = solve("in23.txt");
+);
+print(ans);
+
+# 42s

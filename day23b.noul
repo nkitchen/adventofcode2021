@@ -28,8 +28,7 @@ solve := \filename -> (
     assert(n == 13);
 
     amphipods := {};
-    for (i <- 2 to 5; j <- 3 to 9) (
-        c := grid[i][j];
+    for (i, row <<- grid; j, c <<- grid[i]) (
         if (c in "ABCD") (
             amphipods[V(i, j)] = c;
             grid[i][j] = ".";
@@ -113,7 +112,14 @@ solve := \filename -> (
             k := abs(j_goal[atype] - j) + abs(i - i_hall) + abs(i_hall - i_goal[0]);
             k * energy_per_step[atype]
         );
-        aa.items map cost then sum
+        e := aa.items map cost then sum;
+        for (ij, atype <<- goal) (
+            i, j := ij;
+            if (i > i_goal[0] and aa !? ij != atype) (
+                e += (i - i_goal[0]) * energy_per_step[atype];
+            );
+        );
+        e
     );
 
     steps := \aa, a, ij' -> (
@@ -167,21 +173,11 @@ solve := \filename -> (
         if (i == i_hall) (
             # Moving from hall to goal
             j' := j_goal[atype];
-            blocked := false;
-            for (i' <- i_goal) (
+            for (i' <- reverse(i_goal)) (
                 ij' := V(i', j');
-                if (ij' in aa and aa[ij'] != goal[ij']) (
-                    blocked = true;
+                if (ij' not_in aa) (
+                    dests = [ij'];
                     break;
-                );
-            );
-            if (not(blocked)) (
-                for (i' <- i_goal) (
-                    ij' := V(i', j');
-                    if (ij' not_in aa) (
-                        dests = [ij'];
-                        break;
-                    );
                 );
             );
         ) else if (V(i - 1, j) not_in aa) (
@@ -193,7 +189,7 @@ solve := \filename -> (
             if (ij' in aa) continue;
 
             k := steps(aa, a, ij');
-            if (k == null) continue;
+            if (not k) continue;
             e := k * energy_per_step[atype];
             aa' := aa;
             aa' -.= V(i, j);
@@ -222,7 +218,8 @@ solve := \filename -> (
 
     max_spent := 0;
     q := [[total_energy(s0), 0, s0]];
-    seen := {amphipods};
+    reached := {:1e7};
+    reached[amphipods] = 0;
     while (q) (
         energy, nonce, s := q[0];
         q = heappop(q);
@@ -243,8 +240,11 @@ solve := \filename -> (
             dprint(F"Moving {a}");
             for (s' <- next_states(s, a)) (
                 aa' := s'['amphipods'];
-                if (aa' in seen) continue;
-                seen |.= aa';
+                e' := s'['energy_spent'];
+                if (e' > reached[aa']) (
+                    continue;
+                );
+                reached[aa'] = e';
                 q heappush= [total_energy(s'), random(), s'];
             );
         );

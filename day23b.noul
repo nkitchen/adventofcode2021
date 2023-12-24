@@ -1,262 +1,285 @@
 #!/usr/bin/env noulith
 
-DEBUG := 1;
-TEST := 1;
+DEBUG := int(getenv("DEBUG") or "0");
 
 import "aoc.noul";
 import "heap.noul";
 
-energy_req := {
-    'A': 1,
-    'B': 10,
-    'C': 100,
-    'D': 1000,
+energy_per_step := {
+    "A": 1,
+    "B": 10,
+    "C": 100,
+    "D": 1000,
 };
 
 solve := \filename -> (
     # The name "map" already has a meaning.
     grid := read_file(filename).lines;
 
-    grid = grid[:3] ++ [
-        "  #D#C#B#A#",
-        "  #D#B#A#C#"
-    ] ++ grid[3:];
+    if (getenv("PART1") == null) (
+        grid = grid[:3] ++ [
+            "  #D#C#B#A#",
+            "  #D#B#A#C#"
+        ] ++ grid[3:];
+    );
 
     m := len(grid);
     n := len(grid[0]);
-    assert(m == 7);
     assert(n == 13);
 
-    amphipods := {};
+    # State representation: [energy, rooms, hall]
+    # - energy includes both the amount spent so far and the estimate of what remains.
+    # - rooms is a string with the contents of the rooms, in row-major order.
+    # - hall is a string with the contents of the spaces in the hallway where
+    #   amphipods can stop.
+
+    i_hall := 1;
+    j_hall := [1, 2, 4, 6, 8, 10, 11];
+
+    i_rooms := list(2 til m - 1);
+    j_rooms := [3, 5, 7, 9];
+    j_goal := {
+        "A": 3,
+        "B": 5,
+        "C": 7,
+        "D": 9,
+    };
+
+    rooms_goal := "ABCD" $* len(i_rooms);
+
+    # Map position to index in hall or room string
+    idx := {};
+    for (k, j <<- j_hall) (
+        idx[[i_hall, j]] = k;
+    );
+    for (k, ij <<- i_rooms ** j_rooms) (
+        idx[ij] = k;
+    );
+
+    rooms0 := "." $* len(rooms_goal);
     for (i, row <<- grid; j, c <<- grid[i]) (
         if (c in "ABCD") (
-            amphipods[V(i, j)] = c;
+            rooms0[idx[[i, j]]] = c;
             grid[i][j] = ".";
         );
     );
-    assert(len(amphipods) == 16);
-
-    energy_per_step := {
-        'A': 1,
-        'B': 10,
-        'C': 100,
-        'D': 1000,
-    };
-
-    i_hall := 1;
-
-    hall_stops := [
-        V(1, 1),
-        V(1, 2),
-        V(1, 4),
-        V(1, 6),
-        V(1, 8),
-        V(1, 10),
-        V(1, 11),
-    ];
-
-    i_goal := list(2 to 5);
-    j_goal := {
-        'A': 3,
-        'B': 5,
-        'C': 7,
-        'D': 9,
-    };
-    goal := for (atype, j <<- j_goal; i <- i_goal) yield V(i, j): atype;
-
-    total_energy := \s -> s['energy_spent'] + s['energy_projected'];
+    f := rooms0.frequencies.values.set;
+    assert(len(f) == 1);
+    if (getenv("PART1") == null) (
+        assert(list(f)[0] % 4 == 0);
+    );
 
     display := \s -> (
-        aa := s['amphipods'];
+        energy, rooms, hall := s;
         t := "\n";
         for (i <- 0 til m) (
             for (j <- 0 til n; if j < len(grid[i])) (
-                atype := aa !? V(i, j);
-                if (atype) (
-                    t $= atype;
-                ) else (
+                k := idx !? [i, j];
+                if (k == null) (
                     t $= grid[i][j];
+                ) else if (i == i_hall) (
+                    t $= hall[k];
+                ) else (
+                    t $= rooms[k];
                 )
             );
             t $= "\n";
         );
-        t $= F"Spent: {s['energy_spent']}\n";
-        t $= F"Proj:  {s['energy_projected']}\n";
-        t $= F"Total: {total_energy(s)}\n";
+        t $= F"E: {energy}\n";
         t
     );
 
-    amphipods_to_move := \s -> (
-        aa := s['amphipods'];
-        r := aa.items.set -- goal.items.set;
-        # Include amphipods that match the goal but block progress.
-        for (j <- j_goal.values; i <- i_goal[:-1]) (
-            ij := V(i, j);
-            if (aa !? ij != goal[ij]) continue;
-            for (i' <- (i + 1) to i_goal[-1]) (
-                ij' := V(i', j);
-                if (aa !? ij' != goal[ij']) (
-                    r |.= [ij, aa[ij]];
-                    break;
-                );
+    estimate_energy := \rooms -> (
+        e := 0;
+        moved := {};
+        for (j <- j_rooms; ii <- i_rooms.suffixes) (
+            if (not ii) continue;
+
+            kk := ii map (\i -> idx[[i, j]]);
+            atype := rooms[kk[0]];
+            i := ii[0];
+            must_move := any(kk map (\k -> rooms[k] != rooms_goal[k]));
+            if (must_move) (
+                # Either the amphipod is in the wrong room (ii[0]) or it's in
+                # the way of an amphipod deeper in (ii[1:]), which is in the
+                # wrong room.
+                s := abs(i - i_hall)         # from the room to the hall
+                   + abs(j - j_goal[atype]); # over to the right room
+                e += s * energy_per_step[atype];
+                moved |.= [i, j];
+                es := s * energy_per_step[atype];
             );
         );
-        r
-    );
 
-    estimate_energy := \aa -> (
-        cost := \[ij, atype] -> (
-            if (goal !? ij == atype) return 0;
-
-            i, j := ij;
-            k := abs(j_goal[atype] - j) + abs(i - i_hall) + abs(i_hall - i_goal[0]);
-            k * energy_per_step[atype]
-        );
-        e := aa.items map cost then sum;
-        for (ij, atype <<- goal) (
-            i, j := ij;
-            if (i > i_goal[0] and aa !? ij != atype) (
-                e += (i - i_goal[0]) * energy_per_step[atype];
-            );
+        for (i, j <- moved.sort) (
+            # from the hall to a space vacated in the room
+            k := idx[[i, j]];
+            atype := rooms_goal[k];
+            s := i - i_hall;
+            de := s * energy_per_step[atype];
+            e += de;
         );
         e
     );
 
-    steps := \aa, a, ij' -> (
-        [i, j], atype := a;
-        i', j' := ij';
-        k := 0;
+    steps := \rooms, hall, [i, j], [i', j'] -> (
+        d := 0;
         if (i == i_hall) (
             if (j < j') (
                 for (jj' <- (j + 1) to j') (
-                    if (V(i, jj') in aa) return null;
-                    k += 1;
+                    k := idx !? [i, jj'];
+                    if (k != null and hall[k] != ".") return null;
+                    d += 1;
                 );
             ) else (
                 for (jj' <- (j - 1) to j' by (-1)) (
-                    if (V(i, jj') in aa) return null;
-                    k += 1;
+                    k := idx !? [i, jj'];
+                    if (k != null and hall[k] != ".") return null;
+                    d += 1;
                 );
             );
             for (ii' <- (i + 1) to i') (
-                if (V(ii', j') in aa) return null;
-                k += 1;
+                k := idx !? [ii', j'];
+                if (k != null and rooms[k] != ".") return null;
+                d += 1;
             );
         ) else (
-            for (ii' <- (i - 1) to i_hall by (-1)) (
-                if (V(ii', j) in aa) return null;
-                k += 1;
+            assert(i' == i_hall);
+            for (ii' <- (i - 1) til i' by (-1)) (
+                k := idx !? [ii', j];
+                if (k != null and rooms[k] != ".") return null;
+                d += 1;
             );
             if (j < j') (
-                for (jj' <- (j + 1) to j') (
-                    if (V(i_hall, jj') in aa) return null;
-                    k += 1;
+                for (jj' <- j to j') (
+                    k := idx !? [i', jj'];
+                    if (k != null and hall[k] != ".") return null;
+                    d += 1;
                 );
             ) else (
-                for (jj' <- (j - 1) to j' by (-1)) (
-                    if (V(i_hall, jj') in aa) return null;
-                    k += 1;
+                for (jj' <- j to j' by (-1)) (
+                    k := idx !? [i', jj'];
+                    if (k != null and hall[k] != ".") return null;
+                    d += 1;
                 );
             );
         );
-        k
+        d
     );
 
-    next_states := \s, a -> (
-        dprint(F"next_states {a}");
-        aa := s['amphipods'];
+    next_states := \s -> (
+        energy, rooms, hall := s;
         ss' := [];
+        
+        # From rooms to hall
+        for (j <- j_rooms) (
+            ok := true;
+            to_move := null;
+            atype := null;
+            for (i <- i_rooms) (
+                k := idx[[i, j]];
+                if (rooms[k] != "." and to_move == null) (
+                    to_move = i;
+                    atype = rooms[k];
+                );
+                if (rooms[k] not_in [rooms_goal[k], "."]) (
+                    ok = false;
+                );
+            );
+            if (ok) continue;
+            assert(to_move != null);
+            i := to_move;
+            k := idx[[i, j]];
 
-        [i, j], atype := a;
+            for (j' <- j_hall) (
+                i' := i_hall;
+                d' := steps(rooms, hall, [i, j], [i', j']);
+                if (not(d')) continue;
 
-        dests := [];
-        if (i == i_hall) (
-            # Moving from hall to goal
+                d := abs(i - i_hall) + abs(j_goal[atype] - j);
+                # Old energy estimate for this amphipod
+                e := d * energy_per_step[atype];
+                e' := d' * energy_per_step[atype];
+                energy' := energy - e + e';
+
+                k' := idx[[i', j']];
+                rooms' := rooms;
+                hall' := hall;
+                rooms'[k] = ".";
+                hall'[k'] = atype;
+                ss' append= [energy', rooms', hall'];
+            );
+        );
+
+        # From hall to rooms
+        for (j <- j_hall) (
+            i := i_hall;
+            k := idx[[i, j]];
+            atype := hall[k];
+            if (atype == ".") continue;
+
+            i' := null;
             j' := j_goal[atype];
-            for (i' <- reverse(i_goal)) (
-                ij' := V(i', j');
-                if (ij' not_in aa) (
-                    dests = [ij'];
+            for (gi' <- i_rooms.reverse) (
+                if (rooms[idx[[gi', j']]] == ".") (
+                    i' = gi';
                     break;
                 );
             );
-        ) else if (V(i - 1, j) not_in aa) (
-            # Moving to hall
-            dests = hall_stops;
+            if (i' == null) continue;
+
+            d' := steps(rooms, hall, [i, j], [i', j']);
+            if (not(d')) continue;
+
+            # The energy estimate doesn't change -- we've already updated it
+            # based on the hall location.
+            energy' := energy;
+
+            k' := idx[[i', j']];
+            rooms' := rooms;
+            hall' := hall;
+            rooms'[k'] = atype;
+            hall'[k] = ".";
+            ss' append= [energy', rooms', hall'];
         );
 
-        for (ij' <- dests) (
-            if (ij' in aa) continue;
-
-            k := steps(aa, a, ij');
-            if (not k) continue;
-            e := k * energy_per_step[atype];
-            aa' := aa;
-            aa' -.= V(i, j);
-            aa'[ij'] = atype;
-            s' := {
-                'amphipods': aa',
-                'energy_spent': e + s['energy_spent'],
-                'energy_projected': estimate_energy(aa'),
-            };
-            ss' append= s';
-        );
-        if (DEBUG) (
-            print("next_states >> :");
-            for (s' <- ss') (
-                print(display(s'));
-            )
-        );
         ss'
     );
 
-    s0 := {
-        'amphipods': amphipods,
-        'energy_spent': 0,
-    };
-    s0['energy_projected'] = estimate_energy(amphipods);
+    s0 := [
+        estimate_energy(rooms0),
+        rooms0,
+        "." $* len(j_hall),
+    ];
 
-    max_spent := 0;
-    q := [[total_energy(s0), 0, s0]];
-    reached := {:1e7};
-    reached[amphipods] = 0;
+    max_energy := 0;
+    q := [s0];
+    visited := {s0[1:]};
     while (q) (
-        energy, nonce, s := q[0];
+        s := q[0];
         q = heappop(q);
         dprint(F"next off queue: {display(s)}");
 
-        spent := s['energy_spent'];
-        if (spent > max_spent) (
-            max_spent = spent;
-            print(spent);
+        energy, rooms, hall := s;
+        if (energy > max_energy) (
+            max_energy = energy;
+            print(energy);
         );
 
-        to_move := amphipods_to_move(s);
-        if (len(to_move) == 0) (
-            return s['energy_spent'];
+        if (rooms == rooms_goal) (
+            return energy;
         );
 
-        for (a <- to_move) (
-            dprint(F"Moving {a}");
-            for (s' <- next_states(s, a)) (
-                aa' := s'['amphipods'];
-                e' := s'['energy_spent'];
-                if (e' > reached[aa']) (
-                    continue;
-                );
-                reached[aa'] = e';
-                q heappush= [total_energy(s'), random(), s'];
-            );
+        for (s' <- next_states(s)) (
+            if (s'[1:] in visited) continue;
+            visited |.= s'[1:];
+            q heappush= s';
         );
     );
 );
 
-ans := null;
-if (TEST) (
-    ans = solve("ex23.txt");
-) else (
-    ans = solve("in23.txt");
-);
+ifile := getenv("INPUT") or "in23.txt";
+ans := solve(ifile);
 print(ans);
 
 # 42s

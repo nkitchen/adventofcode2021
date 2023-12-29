@@ -122,49 +122,42 @@ solve := \filename -> (
         e
     );
 
-    steps := \rooms, hall, [i, j], [i', j'] -> (
-        d := 0;
+    path_is_clear := \rooms, hall, [i, j], [i', j'] -> (
         if (i == i_hall) (
             if (j < j') (
                 for (jj' <- (j + 1) to j') (
                     k := idx !? [i, jj'];
-                    if (k != null and hall[k] != ".") return null;
-                    d += 1;
+                    if (k != null and hall[k] != ".") return false;
                 );
             ) else (
                 for (jj' <- (j - 1) to j' by (-1)) (
                     k := idx !? [i, jj'];
-                    if (k != null and hall[k] != ".") return null;
-                    d += 1;
+                    if (k != null and hall[k] != ".") return false;
                 );
             );
             for (ii' <- (i + 1) to i') (
                 k := idx !? [ii', j'];
-                if (k != null and rooms[k] != ".") return null;
-                d += 1;
+                if (k != null and rooms[k] != ".") return false;
             );
         ) else (
             assert(i' == i_hall);
             for (ii' <- (i - 1) til i' by (-1)) (
                 k := idx !? [ii', j];
-                if (k != null and rooms[k] != ".") return null;
-                d += 1;
+                if (k != null and rooms[k] != ".") return false;
             );
             if (j < j') (
                 for (jj' <- j to j') (
                     k := idx !? [i', jj'];
-                    if (k != null and hall[k] != ".") return null;
-                    d += 1;
+                    if (k != null and hall[k] != ".") return false;
                 );
             ) else (
                 for (jj' <- j to j' by (-1)) (
                     k := idx !? [i', jj'];
-                    if (k != null and hall[k] != ".") return null;
-                    d += 1;
+                    if (k != null and hall[k] != ".") return false;
                 );
             );
         );
-        d
+        return true;
     );
 
     next_states := \s -> (
@@ -173,31 +166,39 @@ solve := \filename -> (
         
         # From rooms to hall
         for (j <- j_rooms) (
-            ok := true;
             to_move := null;
             atype := null;
             for (i <- i_rooms) (
                 k := idx[[i, j]];
-                if (rooms[k] != "." and to_move == null) (
+                if (rooms[k] == ".") continue;
+                if (rooms[k] != rooms_goal[k]) (
                     to_move = i;
                     atype = rooms[k];
+                    break;
                 );
-                if (rooms[k] not_in [rooms_goal[k], "."]) (
-                    ok = false;
+                for (ii <- i + 1 to i_rooms[-1]) (
+                    kk := idx[[ii, j]];
+                    if (rooms[kk] != rooms_goal[kk]) (
+                        to_move = i;
+                        atype = rooms[k];
+                        break;
+                    );
+                );
+                if (to_move != null) (
+                    break;
                 );
             );
-            if (ok) continue;
-            assert(to_move != null);
+            if (to_move == null) continue;
             i := to_move;
             k := idx[[i, j]];
 
             for (j' <- j_hall) (
                 i' := i_hall;
-                d' := steps(rooms, hall, [i, j], [i', j']);
-                if (not(d')) continue;
+                if (not(path_is_clear(rooms, hall, [i, j], [i', j']))) continue;
+                d' := abs(j' - j) + abs(j_goal[atype] - j');
 
-                d := abs(i - i_hall) + abs(j_goal[atype] - j);
-                # Old energy estimate for this amphipod
+                # Old energy estimate for movement through the hall
+                d := abs(j_goal[atype] - j);
                 e := d * energy_per_step[atype];
                 e' := d' * energy_per_step[atype];
                 energy' := energy - e + e';
@@ -221,15 +222,18 @@ solve := \filename -> (
             i' := null;
             j' := j_goal[atype];
             for (gi' <- i_rooms.reverse) (
-                if (rooms[idx[[gi', j']]] == ".") (
+                k' := idx[[gi', j']];
+                if (rooms[k'] == ".") (
                     i' = gi';
+                    break;
+                ) else if (rooms[k'] != atype) (
+                    # Blocker
                     break;
                 );
             );
             if (i' == null) continue;
 
-            d' := steps(rooms, hall, [i, j], [i', j']);
-            if (not(d')) continue;
+            if (not(path_is_clear(rooms, hall, [i, j], [i', j']))) continue;
 
             # The energy estimate doesn't change -- we've already updated it
             # based on the hall location.
@@ -240,7 +244,8 @@ solve := \filename -> (
             hall' := hall;
             rooms'[k'] = atype;
             hall'[k] = ".";
-            ss' append= [energy', rooms', hall'];
+            s' := [energy', rooms', hall'];
+            ss' append= s';
         );
 
         ss'
@@ -282,4 +287,4 @@ ifile := getenv("INPUT") or "in23.txt";
 ans := solve(ifile);
 print(ans);
 
-# 42s
+# 12s

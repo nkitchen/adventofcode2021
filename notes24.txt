@@ -1,0 +1,264 @@
+inp w
+mul x 0     x = 0
+add x z     x = z_0
+mod x 26    x = z_0 % 26
+add x 14    x = z_0 % 26 + 14
+eql x w     x = (w_0 == z_0 % 26 + 14)
+eql x 0     x = !(w_0 == z_0 % 26 + 14)
+mul y 0     y = 0
+add y 25    y = 25
+mul y x     y = (w_0 == z_0 % 26 + 14) ? 0 : 25
+add y 1     y = (w_0 == z_0 % 26 + 14) ? 1 : 26
+mul z y     z_1 = (w_0 == z_0 % 26 + 14) ? z_0 : 26 * z_0
+mul y 0     y = 0
+add y w     y = w_0
+add y 7     y = w_0 + 7
+mul y x     y = (w_0 == z_0 % 26 + 14) ? 0 : w_0 + 7
+add z y     z_1 = (w_0 == z_0 % 26 + 14) ? z_0 : w_0 + 7 + 26*z_0
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 12
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 4
+mul y x
+add z y     z_2 = (w_1 == z_1 % 26 + 12) ? z_1 : w_1 + 4 + 26*z_1
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 11
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 8
+mul y x
+add z y     z_3 = (w_2 == z_2 % 26 + 11) ? z_2 : w_2 + 8 + 26*z_2
+
+inp w
+mul x 0     x = 0                                                 
+add x z     x = z_3                                               
+mod x 26    x = z_3 % 26
+div z 26    z_4 = z_3 / 26
+add x -4    
+eql x w     x = (w_3 == z_3 % 26 - 4)                              
+eql x 0     x = !(w_3 == z_3 % 26 - 4)                             
+mul y 0     y = 0                                                  
+add y 25    y = 25                                                 
+mul y x     y = (w_0 == z_0 % 26 - 4) ? 0 : 25                     
+add y 1     y = (w_0 == z_0 % 26 - 4) ? 1 : 26                     
+mul z y     z_1 = (w_0 == z_0 % 26 - 4) ? z_0 : 26 * z_0           
+mul y 0     y = 0                                                  
+add y w     y = w_0                                                
+add y 1     y = w_0 + 1                                            
+mul y x     y = (w_0 == z_0 % 26 - 4) ? 0 : w_0 + 1                
+add z y     z_1 = (w_0 == z_0 % 26 - 4) ? z_0 : w_0 + 1 + 26*z_0   
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 10
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 5
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 10
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 14
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 15
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 12
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -9
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 10
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -9
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 5
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+add x 12
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 7
+mul y x
+add z y
+
+inp w
+mul x 0
+add x z
+mod x 26
+div z 26
+add x -15
+eql x w
+eql x 0
+mul y 0
+add y 25
+mul y x
+add y 1
+mul z y
+mul y 0
+add y w
+add y 6
+mul y x
+add z y
+
+inp w
+mul x 0      x = 0        
+add x z      x = z_p      
+mod x 26     x = z_p % 26 
+div z 26     z = z_p // 26
+add x -7     x = z_p % 26 - 7
+eql x w      x = (w == z_p % 26 - 7)                                        
+eql x 0      x = !(w == z_p % 26 - 7)                                       
+mul y 0      y = 0                                                      
+add y 25     y = 25                                                     
+mul y x      y = (w == z_p % 26 - 7) ? 0 : 25                               
+add y 1      y = (w == z_p % 26 - 7) ? 1 : 26                               
+mul z y      z = (w == z_p % 26 - 7) ? z_p // 26 : 26 * (z_p // 26)         
+mul y 0      y = 0                                                      
+add y w      y = w                                                      
+add y 8      y = w + 8                                                  
+mul y x      y = (w == z_p % 26 - 7) ? 0 : w + 8                            
+add z y      z = (w == z_p % 26 - 7) ? z_p // 26 : w + 8 + 26 * (z_p // 26) 
+
+inp w
+mul x 0      x = 0        
+add x z      x = z_p      
+mod x 26     x = z_p % 26 
+div z 26     z = z_p // 26
+add x -10    x = z_p % 26 - 10
+eql x w      x = (w == z_p % 26 - 10)                                        
+eql x 0      x = !(w == z_p % 26 - 10)                                       
+mul y 0      y = 0                                                      
+add y 25     y = 25                                                     
+mul y x      y = (w == z_p % 26 - 10) ? 0 : 25                               
+add y 1      y = (w == z_p % 26 - 10) ? 1 : 26                               
+mul z y      z = (w == z_p % 26 - 10) ? z_p // 26 : 26 * (z_p // 26)         
+mul y 0      y = 0                                                      
+add y w      y = w                                                      
+add y 4      y = w + 4                                                  
+mul y x      y = (w == z_p % 26 - 10) ? 0 : w + 4                            
+add z y      z = (w == z_p % 26 - 10) ? z_p // 26 : w + 4 + 26 * (z_p // 26) 
+
+inp w
+mul x 0      x = 0                                                 
+add x z      x = z_p                                               
+mod x 26     x = z_p % 26                                          
+div z 26     z = z_p // 26
+add x 0      
+eql x w      x = (w == z_p % 26)                             
+eql x 0      x = !(w == z_p % 26)                            
+mul y 0      y = 0                                                  
+add y 25     y = 25                                                 
+mul y x      y = (w == z_p % 26) ? 0 : 25                    
+add y 1      y = (w == z_p % 26) ? 1 : 26                    
+mul z y      z = (w == z_p % 26) ? z_p // 26 : 26 * (z_p // 26)
+mul y 0      y = 0                                                  
+add y w      y = w                                                
+add y 6      y = w + 6                                            
+mul y x      y = (w == z_p % 26) ? 0 : w + 6               
+add z y      z = (w == z_p % 26) ? z_p // 26 : w + 6 + 26 * (z_p // 26)
+          (z == 0) =>
+	      (-25 <= z_p <- 25) && (1 <= w == z_p % 26 <= 9)
+	      or
+	      (w != z_p % 26) && (w + 6 == -26 * (z_p // 26))
+
+# vim: set virtualedit=all

@@ -1,0 +1,147 @@
+#!/usr/bin/env noulith
+
+DEBUG := int(getenv("DEBUG") or "0");
+
+import "aoc.noul";
+
+solve := \filename -> (
+    vars := {:0};
+
+    insts := read_file(filename).lines map words;
+    inst_stages := [];
+    for (inst <- insts) (
+        if (inst[0] == "inp") (
+            inst_stages append= [];
+        );
+        inst_stages[-1] append= inst;
+    );
+
+    exec := \prog, vars, input -> (
+        val := \s -> (
+            try int(s)
+            catch e -> vars[s]
+        );
+
+        for (inst <- prog) (
+            switch (inst)
+            case "inp", a -> (
+                assert(a == "w");
+                vars[a] = input;
+            )
+            case "add", a, b -> (
+                vars[a] += val(b);
+            )
+            case "mul", a, b -> (
+                vars[a] *= val(b);
+            )
+            case "div", a, b -> (
+                vars[a] = int(vars[a] / val(b));
+            )
+            case "mod", a, b -> (
+                vars[a] = vars[a] % val(b);
+            )
+            case "eql", a, b -> (
+                vars[a] = (vars[a] == val(b));
+            );
+        );
+
+        vars
+    );
+
+    # Structure:
+    # [
+    #   {
+    #      z: [[w, z'], [w, z'], ...],
+    #      z: [[w, z']...],
+    #      ...
+    #   }...
+    # ]
+    # for varying z, w, z'
+    # Meaning: In stage i, input of w and z results in a new value z'.
+    tr_by_stage := [];
+    z_goals := [0];
+    for (stage <- inst_stages.reverse) (
+        # Extract params of stage.
+        div := (["div", "z", "26"] in stage);
+        a := null;
+        b := null;
+        for (inst2 <- stage window 2) (
+            switch (inst2)
+            case ["add", "x", wa], ["eql", "x", "w"] -> (a = int(wa))
+            case ["add", "y", "w"], ["add", "y", wb] -> (b = int(wb))
+            case _ -> null;
+        );
+
+        tr := {:[]};
+        for (z' <- z_goals) (
+            if (div) (
+                for (w <- 1 to 9) (
+                    for (zr <- (-25) to 25) (
+                        if (w == zr + a) (
+                            # then-case: w == z % 26 + a --> z' == z // 26
+                            zq := z';
+                            z := 26 * zq + zr;
+                            if ((z < 0) != (zr < 0)) continue;
+                            tr[z] append= [w, z'];
+                        ) else (
+                            # else-case: w != z % 26 + a --> z' == w + b + 26 * (z // 26)
+                            zp := z' - w - b;
+                            if (zp % 26 != 0) continue;
+                            z := zp + zr;
+                            if ((z < 0) != (zr < 0)) continue;
+                            tr[z] append= [w, z'];
+                        );
+                    );
+                );
+            ) else (
+                for (w <- 1 to 9) (
+                    z := z';
+                    if (w == z % 26 + a) (
+                        # then-case: w == z % 26 + a --> z' == z
+                        tr[z] append= [w, z'];
+                    ) else (
+                        # else-case: w != z % 26 + a --> z' == w + b + 26 * z
+                        zp := z' - w - b;
+                        if (zp % 26 != 0) continue;
+                        z = zp // 26;
+                        if (w == z % 26 + a) continue;
+                        tr[z] append= [w, z'];
+                    );
+                );
+            );
+        );
+
+        print(tr.len);
+        z_goals = tr.keys;
+        tr_by_stage append= tr;
+    );
+
+    tr_by_stage .= reverse;
+
+    model := [];
+    z := 0;
+    for (tr <- tr_by_stage) (
+        w, z' := max(tr[z]);
+        model append= w;
+        z = z';
+    );
+
+    largest := (model map str) fold $;
+
+    model = [];
+    z = 0;
+    for (tr <- tr_by_stage) (
+        w, z' := min(tr[z]);
+        model append= w;
+        z = z';
+    );
+
+    smallest := (model map str) fold $;
+    print(largest);
+    print(smallest);
+);
+
+ifile := getenv("INPUT") or "in24.txt";
+solve(ifile);
+
+# TIME

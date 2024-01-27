@@ -1,0 +1,325 @@
+#!/usr/bin/env noulith
+
+DEBUG := int(getenv("DEBUG") or "0");
+
+import "aoc.noul";
+import "heap.noul";
+
+expected := {
+    #    1: [
+    #        "....>.>v.>",
+    #        "v.v>.>v.v.",
+    #        ">v>>..>v..",
+    #        ">>v>v>.>.v",
+    #        ".>v.v...v.",
+    #        "v>>.>vvv..",
+    #        "..v...>>..",
+    #        "vv...>>vv.",
+    #        ">.v.v..v.v",
+    #    ],
+    #    2: [
+    #        ">.v.v>>..v",
+    #        "v.v.>>vv..",
+    #        ">v>.>.>.v.",
+    #        ">>v>v.>v>.",
+    #        ".>..v....v",
+    #        ".>v>>.v.v.",
+    #        "v....v>v>.",
+    #        ".vv..>>v..",
+    #        "v>.....vv.",
+    #    ],
+    #    3: [
+    #        "v>v.v>.>v.",
+    #        "v...>>.v.v",
+    #        ">vv>.>v>..",
+    #        ">>v>v.>.v>",
+    #        "..>....v..",
+    #        ".>.>v>v..v",
+    #        "..v..v>vv>",
+    #        "v.v..>>v..",
+    #        ".v>....v..",
+    #    ],
+    #    4: [
+    #        "v>..v.>>..",
+    #        "v.v.>.>.v.",
+    #        ">vv.>>.v>v",
+    #        ">>.>..v>.>",
+    #        "..v>v...v.",
+    #        "..>>.>vv..",
+    #        ">.v.vv>v.v",
+    #        ".....>>vv.",
+    #        "vvv>...v..",
+    #    ],
+    #    5: [
+    #        "vv>...>v>.",
+    #        "v.v.v>.>v.",
+    #        ">.v.>.>.>v",
+    #        ">v>.>..v>>",
+    #        "..v>v.v...",
+    #        "..>.>>vvv.",
+    #        ".>...v>v..",
+    #        "..v.v>>v.v",
+    #        "v.v.>...v.",
+    #    ],
+    #    10: [
+    #        "..>..>>vv.",
+    #        "v.....>>.v",
+    #        "..v.v>>>v>",
+    #        "v>.>v.>>>.",
+    #        "..v>v.vv.v",
+    #        ".v.>>>.v..",
+    #        "v.v..>v>..",
+    #        "..v...>v.>",
+    #        ".vv..v>vv.",
+    #    ],
+    #    20: [
+    #        "v>.....>>.",
+    #        ">vv>.....v",
+    #        ".>v>v.vv>>",
+    #        "v>>>v.>v.>",
+    #        "....vv>v..",
+    #        ".v.>>>vvv.",
+    #        "..v..>>vv.",
+    #        "v.v...>>.v",
+    #        "..v.....v>",
+    #    ],
+    #    30: [
+    #        ".vv.v..>>>",
+    #        "v>...v...>",
+    #        ">.v>.>vv.>",
+    #        ">v>.>.>v.>",
+    #        ".>..v.vv..",
+    #        "..v>..>>v.",
+    #        "....v>..>v",
+    #        "v.v...>vv>",
+    #        "v.v...>vvv",
+    #    ],
+    #    40: [
+    #        ">>v>v..v..",
+    #        "..>>v..vv.",
+    #        "..>>>v.>.v",
+    #        "..>>>>vvv>",
+    #        "v.....>...",
+    #        "v.v...>v>>",
+    #        ">vv.....v>",
+    #        ".>v...v.>v",
+    #        "vvv.v..v.>",
+    #    ],
+    #    50: [
+    #        "..>>v>vv.v",
+    #        "..v.>>vv..",
+    #        "v.>>v>>v..",
+    #        "..>>>>>vv.",
+    #        "vvv....>vv",
+    #        "..v....>>>",
+    #        "v>.......>",
+    #        ".vv>....v>",
+    #        ".>v.vv.v..",
+    #    ],
+    #    55: [
+    #        "..>>v>vv..",
+    #        "..v.>>vv..",
+    #        "..>>v>>vv.",
+    #        "..>>>>>vv.",
+    #        "v......>vv",
+    #        "v>v....>>v",
+    #        "vvv...>..>",
+    #        ">vv.....>.",
+    #        ".>v.vv.v..",
+    #    ],
+    #    56: [
+    #        "..>>v>vv..",
+    #        "..v.>>vv..",
+    #        "..>>v>>vv.",
+    #        "..>>>>>vv.",
+    #        "v......>vv",
+    #        "v>v....>>v",
+    #        "vvv....>.>",
+    #        ">vv......>",
+    #        ".>v.vv.v..",
+    #    ],
+    #    57: [
+    #        "..>>v>vv..",
+    #        "..v.>>vv..",
+    #        "..>>v>>vv.",
+    #        "..>>>>>vv.",
+    #        "v......>vv",
+    #        "v>v....>>v",
+    #        "vvv.....>>",
+    #        ">vv......>",
+    #        ".>v.vv.v..",
+    #    ],
+    #    58: [
+    #        "..>>v>vv..",
+    #        "..v.>>vv..",
+    #        "..>>v>>vv.",
+    #        "..>>>>>vv.",
+    #        "v......>vv",
+    #        "v>v....>>v",
+    #        "vvv.....>>",
+    #        ">vv......>",
+    #        ".>v.vv.v..",
+    #    ],
+};
+
+solve := \filename -> (
+    grid := read_file(filename).lines;
+
+    m := len(grid);
+    n := len(grid[0]);
+
+    eq := {};
+    sq := {};
+    for (i, row <<- grid; j, c <<- row) (
+        switch (c)
+        case ">" -> (
+            if (grid[i][(j + 1) % n] == ".") eq |.= [i, j];
+        )
+        case "v" -> (
+            if (grid[(i + 1) % m][j] == ".") sq |.= [i, j];
+        )
+        case "." -> false
+    );
+
+    if (DEBUG) (
+        print("Initial:");
+        for (row <- grid) print(row);
+        print(F"eq {eq.list.sort}");
+        print(F"sq {sq.list.sort}");
+        print();
+    );
+    t := 0;
+    while (eq or sq) (
+        eq' := eq;
+        sq' := sq;
+        grid' := grid;
+        for (i, j <- eq) (
+            c := grid[i][j];
+            assert(c == ">");
+            i' := i;
+            j' := (j + 1) % n;
+            assert(grid[i'][j'] == ".");
+
+            grid'[i'][j'] = c;
+            grid'[i][j] = ".";
+            eq' -.= [i, j];
+        );
+
+        for (i, j <- eq) (
+            i' := i;
+            j' := (j + 1) % n;
+
+            ui := (i + m - 1) % m;
+            uj := j;
+            if (grid'[ui][uj] == "v") (
+                # Now unblocked
+                sq' |.= [ui, uj];
+            );
+            ui = i;
+            uj = (j + n - 1) % n;
+            if (grid'[ui][uj] == ">") (
+                # Now unblocked
+                eq' |.= [ui, uj];
+            );
+
+            bi := (i' + m - 1) % m;
+            bj := j';
+            if (grid'[bi][bj] == "v") (
+                # Now blocked
+                sq' -.= [bi, bj];
+            );
+
+            ni := i';
+            nj := (j' + 1) % n;
+            if (grid'[ni][nj] == ".") (
+                eq' |.= [i', j'];
+            );
+        );
+
+        eq = eq';
+        sq = sq';
+        grid = grid';
+
+        if (DEBUG) (
+            print(F"Step {t+1}, >:");
+            for (row <- grid) print(row);
+            print(F"eq {eq.list.sort}");
+            print(F"sq {sq.list.sort}");
+            print();
+        );
+
+        for (i, j <- sq) (
+            c := grid[i][j];
+            assert(c == "v");
+            i' := (i + 1) % m;
+            j' := j;
+            assert(grid[i'][j'] == ".");
+
+            grid'[i][j] = ".";
+            grid'[i'][j'] = c;
+            sq' -.= [i, j];
+        );
+
+        for (i, j <- sq) (
+            i' := (i + 1) % m;
+            j' := j;
+
+            ui := i;
+            uj := (j + n - 1) % n;
+            if (grid'[ui][uj] == ">") (
+                # Now unblocked
+                eq' |.= [ui, uj];
+            );
+            ui = (i + m - 1) % m;
+            uj = j;
+            if (grid'[ui][uj] == "v") (
+                # Now unblocked
+                sq' |.= [ui, uj];
+            );
+
+            bi := i';
+            bj := (j' + n - 1) % n;
+            if (grid'[bi][bj] == ">") (
+                # Now blocked
+                eq' -.= [bi, bj];
+            );
+
+            ni := (i' + 1) % m;
+            nj := j';
+            if (grid'[ni][nj] == ".") (
+                sq' |.= [i', j'];
+            );
+        );
+
+        eq = eq';
+        sq = sq';
+        grid = grid';
+        
+        if (DEBUG) (
+            print(F"Step {t+1}, v:");
+            for (row <- grid) print(row);
+            print(F"eq {eq.list.sort}");
+            print(F"sq {sq.list.sort}");
+            print();
+        );
+
+        t += 1;
+
+        if (t in expected and grid != expected[t]) (
+            print(F"Mismatch at step {t}");
+            print("Expected:");
+            for (row <- expected[t]) print(row);
+            print();
+            print("Got:");
+            for (row <- grid) print(row);
+            print();
+            break;
+        );
+    );
+    print(t + 1);
+);
+
+ifile := getenv("INPUT") or "in25.txt";
+solve(ifile);
+
+# TIME
